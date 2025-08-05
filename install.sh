@@ -31,6 +31,8 @@ chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
 echo "[2] 建立 plist 檔案到 $PLIST_DEST..."
 
+mkdir -p "$(dirname "$PLIST_DEST")"
+
 cat > "$PLIST_DEST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
