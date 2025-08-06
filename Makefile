@@ -40,7 +40,7 @@ build-amd64:
 	@echo "✅ Done! Binary '$(BINARY_AMD)' created."
 
 # Create release zip files
-release: build
+release: all
 	@echo "Creating release zip files..."
 	@zip -j $(RELEASE_AMD_ZIP) $(BINARY_AMD) install.sh uninstall.sh
 	@echo "✅ Created $(RELEASE_AMD_ZIP)"
