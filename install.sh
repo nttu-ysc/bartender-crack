@@ -8,16 +8,16 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 # 目標執行檔與安裝路徑
 DEST_BINARY_NAME="bartender_crack"
-INSTALL_DIR="$HOME/bartender-crack"
+INSTALL_DIR="$HOME/.bartender-crack"
 PLIST_NAME="com.shun.bartender_crack.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 
 # 偵測系統架構
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
-    SOURCE_BINARY_NAME="bartender_crack_arm64"
+    SOURCE_BINARY_NAME="bartender_crack_arm"
 elif [ "$ARCH" = "x86_64" ]; then
-    SOURCE_BINARY_NAME="bartender_crack_amd64"
+    SOURCE_BINARY_NAME="bartender_crack_amd"
 else
     echo "❌ 錯誤：不支援的系統架構: $ARCH"
     read -p "按 Enter 鍵結束..."
@@ -53,6 +53,9 @@ if ! [[ "$MINUTE" =~ ^[0-9]{1,2}$ ]] || [ "$MINUTE" -lt 0 ] || [ "$MINUTE" -gt 5
     read -p "按 Enter 鍵結束..."
     exit 1
 fi
+
+echo "正在移除執行檔的隔離屬性以避免系統警告..."
+xattr -d com.apple.quarantine "$SOURCE_BINARY_PATH" 2>/dev/null || true
 
 echo "[1] 從 $SOURCE_BINARY_NAME 安裝執行檔到 $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
