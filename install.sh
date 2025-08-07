@@ -106,8 +106,8 @@ SOURCE_BINARY_PATH="$DOWNLOAD_PATH"
 
 # 3. Get scheduled time from user
 print_info "請輸入您希望 Bartender Crack 每日自動執行的時間："
-read -p "小時 (0-23): " HOUR
-read -p "分鐘 (0-59): " MINUTE
+read -p "小時 (0-23): " HOUR < /dev/tty
+read -p "分鐘 (0-59): " MINUTE < /dev/tty
 
 # Validate input
 if ! [[ "$HOUR" =~ ^[0-9]{1,2}$ ]] || [ "$HOUR" -lt 0 ] || [ "$HOUR" -gt 23 ]; then
@@ -163,7 +163,7 @@ cat > "$PLIST_PATH" << EOL
     <key>StandardOutPath</key>
     <string>$INSTALL_DIR/${BINARY_NAME}.log</string>
     <key>StandardErrorPath</key>
-    <string>$INSTALL_DIR/${BINARY_NAME}.err</string>
+    <string>$INSTALL_DIR/${BINARY_NAME}.log</string>
 </dict>
 </plist>
 EOL
