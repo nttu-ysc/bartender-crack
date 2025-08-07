@@ -49,7 +49,7 @@ func main() {
 		log.Fatalf("failed to encode plist: %v", err)
 	}
 
-	fmt.Println("Done")
+	log.Println("Done")
 
 	if err := exec.Command("pkill", `Bartender 5`).Run(); err != nil {
 		log.Printf("failed to kill bartender: %v", err)
