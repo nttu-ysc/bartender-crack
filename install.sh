@@ -100,7 +100,7 @@ if [ -z "$DOWNLOAD_PATH" ]; then
     exit 1
 fi
 
-print_success "執行檔已成功下載到 $DOWNLOAD_PATH。"
+print_success "執行檔已成功下載到 $DOWNLOAD_PATH 。"
 
 SOURCE_BINARY_PATH="$DOWNLOAD_PATH"
 
@@ -119,7 +119,7 @@ if ! [[ "$MINUTE" =~ ^[0-9]{1,2}$ ]] || [ "$MINUTE" -lt 0 ] || [ "$MINUTE" -gt 5
     print_error "錯誤：無效的『分鐘』輸入 ($MINUTE)。請輸入 0-59 之間的數字。"
     exit 1
 fi
-print_success "排程時間已設定為 $HOUR:$MINUTE。"
+print_success "排程時間已設定為 $HOUR:$MINUTE 。"
 
 # 4. Remove quarantine attribute from the binary to avoid Gatekeeper warnings
 print_info "正在移除執行檔的隔離屬性以避免系統警告..."
