@@ -1,82 +1,155 @@
 #!/bin/bash
 
+# Stop on first error
 set -e
 
-# --- Self-locating script --- 
-# Get the absolute path of the script itself, regardless of where it's run from
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+# --- Determine script's own directory ---
+# This ensures that the script can find the binary file, even when run from Finder.
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-# 目標執行檔與安裝路徑
-DEST_BINARY_NAME="bartender_crack"
+# --- Configuration ---
+# Installation directory in the user's home
 INSTALL_DIR="$HOME/.bartender-crack"
-PLIST_NAME="com.shun.bartender_crack.plist"
-PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
+# Name of the binary
+BINARY_NAME="bartender_crack"
+# The name for the service (used in plist)
+PLIST_LABEL="com.shun.bartender_crack"
+# Path to the plist file
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 
-# 偵測系統架構
+# GitHub Release Configuration
+GITHUB_REPO="nttu-ysc/bartender-crack"
+RELEASE_VERSION="v0.0.3"
+DOWNLOAD_URL_BASE="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_VERSION}"
+
+# --- Helper Functions ---
+function print_success() {
+  echo "✅  $1"
+}
+
+function print_info() {
+  echo "ℹ️  $1"
+}
+
+function print_warning() {
+  echo "⚠️  $1"
+}
+
+function print_error() {
+  echo "❌  $1" >&2
+}
+
+# --- Cleanup Function ---
+TEMP_DIR="" # Initialize TEMP_DIR globally
+function cleanup() {
+  # Unset traps to prevent re-execution
+  trap - EXIT INT TERM
+
+  if [ -n "$TEMP_DIR" ] && [ -d "$TEMP_DIR" ]; then
+    print_info "正在清理臨時檔案..."
+    rm -rf "$TEMP_DIR"
+    print_success "臨時檔案已清理。"
+  fi
+  exit 1 # Exit the script after cleanup
+}
+
+# --- Main Script ---
+echo "--- Bartender Crack 安裝程式 ---"
+print_info "此腳本將會安裝 Bartender Crack，並設定為自動在背景執行。"
+
+# Create a temporary directory and set up a trap to clean it up on exit
+TEMP_DIR=$(mktemp -d)
+print_info "已建立臨時目錄：$TEMP_DIR"
+
+# Trap to clean up temporary directory on EXIT, INT (Ctrl+C), TERM
+trap cleanup EXIT INT TERM
+
+# 1. Detect architecture and determine binary name
+print_info "正在偵測您的電腦架構..."
 ARCH=$(uname -m)
+SOURCE_BINARY_SUFFIX=""
+
 if [ "$ARCH" = "arm64" ]; then
-    SOURCE_BINARY_NAME="bartender_crack_arm"
+    print_info "偵測到 ARM 架構 (Apple Silicon)。"
+    SOURCE_BINARY_SUFFIX="_arm"
 elif [ "$ARCH" = "x86_64" ]; then
-    SOURCE_BINARY_NAME="bartender_crack_amd"
+    print_info "偵測到 AMD/Intel 架構。"
+    SOURCE_BINARY_SUFFIX="_amd"
 else
-    echo "❌ 錯誤：不支援的系統架構: $ARCH"
-    read -p "按 Enter 鍵結束..."
+    print_error "不支援的電腦架構: $ARCH"
     exit 1
 fi
 
-# 使用腳本的絕對路徑來定位來源執行檔
-SOURCE_BINARY_PATH="$SCRIPT_DIR/$SOURCE_BINARY_NAME"
+SOURCE_BINARY_NAME="${BINARY_NAME}${SOURCE_BINARY_SUFFIX}"
+DOWNLOAD_FILE_NAME="${SOURCE_BINARY_NAME}"
 
-# 檢查對應的執行檔是否存在
-if [ ! -f "$SOURCE_BINARY_PATH" ]; then
-    echo "❌ 錯誤：找不到執行檔 '$SOURCE_BINARY_PATH'。"
-    echo "請先執行 'make all' 或 'make build' 來編譯。"
-    echo
-    read -p "按 Enter 鍵結束..."
+# 2. Download the binary from GitHub Release
+print_info "正在從 GitHub 下載執行檔 '$DOWNLOAD_FILE_NAME'..."
+DOWNLOAD_PATH="$TEMP_DIR/$DOWNLOAD_FILE_NAME"
+
+curl -sSL "${DOWNLOAD_URL_BASE}/${DOWNLOAD_FILE_NAME}" -o "$DOWNLOAD_PATH"
+
+if [ ! -f "$DOWNLOAD_PATH" ]; then
+    print_error "錯誤：下載執行檔失敗。請檢查網路連線或 GitHub Release 是否存在。"
     exit 1
 fi
 
-echo "===== Bartender Crack 安裝程式 ($ARCH) ====="
-echo "請輸入你想排程執行的時間："
-read -p "小時（0-23）： " HOUR
-read -p "分鐘（0-59）： " MINUTE
+# Explicit check for DOWNLOAD_PATH before printing success message
+if [ -z "$DOWNLOAD_PATH" ]; then
+    print_error "內部錯誤：下載路徑變數為空。請檢查腳本邏輯。"
+    exit 1
+fi
 
-# 驗證輸入是否為合法數字
+print_success "執行檔已成功下載到 $DOWNLOAD_PATH。"
+
+SOURCE_BINARY_PATH="$DOWNLOAD_PATH"
+
+# 3. Get scheduled time from user
+print_info "請輸入您希望 Bartender Crack 每日自動執行的時間："
+read -p "小時 (0-23): " HOUR
+read -p "分鐘 (0-59): " MINUTE
+
+# Validate input
 if ! [[ "$HOUR" =~ ^[0-9]{1,2}$ ]] || [ "$HOUR" -lt 0 ] || [ "$HOUR" -gt 23 ]; then
-    echo "❌ 錯誤：無效的『小時』輸入"
-    read -p "按 Enter 鍵結束..."
+    print_error "錯誤：無效的『小時』輸入 ($HOUR)。請輸入 0-23 之間的數字。"
     exit 1
 fi
 
 if ! [[ "$MINUTE" =~ ^[0-9]{1,2}$ ]] || [ "$MINUTE" -lt 0 ] || [ "$MINUTE" -gt 59 ]; then
-    echo "❌ 錯誤：無效的『分鐘』輸入"
-    read -p "按 Enter 鍵結束..."
+    print_error "錯誤：無效的『分鐘』輸入 ($MINUTE)。請輸入 0-59 之間的數字。"
     exit 1
 fi
+print_success "排程時間已設定為 $HOUR:$MINUTE。"
 
-echo "正在移除執行檔的隔離屬性以避免系統警告..."
+# 4. Remove quarantine attribute from the binary to avoid Gatekeeper warnings
+print_info "正在移除執行檔的隔離屬性以避免系統警告..."
 xattr -d com.apple.quarantine "$SOURCE_BINARY_PATH" 2>/dev/null || true
+print_success "隔離屬性已移除 (若存在)。"
 
-echo "[1] 從 $SOURCE_BINARY_NAME 安裝執行檔到 $INSTALL_DIR..."
+# 5. Create the installation directory and copy binary
+print_info "正在建立安裝目錄於 $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
-cp "$SOURCE_BINARY_PATH" "$INSTALL_DIR/$DEST_BINARY_NAME"
-chmod +x "$INSTALL_DIR/$DEST_BINARY_NAME"
+print_success "目錄已建立。"
 
-echo "[2] 建立 plist 檔案到 $PLIST_DEST..."
+print_info "正在安裝執行檔 '$SOURCE_BINARY_NAME' 到 '$INSTALL_DIR/$BINARY_NAME'..."
+cp "$SOURCE_BINARY_PATH" "$INSTALL_DIR/$BINARY_NAME"
+chmod +x "$INSTALL_DIR/$BINARY_NAME"
+print_success "執行檔已安裝。"
 
-mkdir -p "$(dirname "$PLIST_DEST")"
+# 6. Create the plist file for the LaunchAgent
+print_info "正在建立系統服務檔案於 $PLIST_PATH..."
+mkdir -p "$(dirname "$PLIST_PATH")" # Ensure the directory exists
 
-cat > "$PLIST_DEST" <<EOF
+cat > "$PLIST_PATH" << EOL
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
- "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>$PLIST_NAME</string>
+    <string>$PLIST_LABEL</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$INSTALL_DIR/$DEST_BINARY_NAME</string>
+        <string>$INSTALL_DIR/$BINARY_NAME</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -88,18 +161,30 @@ cat > "$PLIST_DEST" <<EOF
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/${DEST_BINARY_NAME}.log</string>
+    <string>$INSTALL_DIR/${BINARY_NAME}.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/${DEST_BINARY_NAME}.err</string>
+    <string>$INSTALL_DIR/${BINARY_NAME}.err</string>
 </dict>
 </plist>
-EOF
+EOL
+print_success "服務檔案已建立。"
 
-echo "[3] 啟用 launchctl 排程..."
-launchctl unload "$PLIST_DEST" 2>/dev/null || true
-launchctl load "$PLIST_DEST"
+# 7. Load and start the service
+print_info "正在載入並啟動服務..."
+# Unload the service first to ensure we're using the new configuration
+launchctl unload "$PLIST_PATH" 2>/dev/null || true
+# Load the service
+launchctl load "$PLIST_PATH"
+print_success "服務已成功載入。"
 
-echo
-echo "[✓] 安裝完成！將於每天 $HOUR:$MINUTE 自動執行。"
-echo
-read -p "✅ 設定成功！請按 Enter 鍵關閉此視窗..."
+echo ""
+print_success "--- 安裝完成！ ---"
+echo ""
+print_info "Bartender Crack 現已設定為每日 $HOUR:$MINUTE 自動執行。"
+print_info "所有檔案皆已安裝於: $INSTALL_DIR"
+print_info "若要查看日誌，請執行此指令："
+echo "  tail -f $INSTALL_DIR/${BINARY_NAME}.log"
+echo ""
+print_info "若要解除安裝，請執行以下指令："
+echo "  curl -sSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/uninstall.sh | bash"
+echo ""
